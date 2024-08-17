@@ -926,6 +926,8 @@ def get_opening_explorer_move(li: LICHESS_TYPE, board: chess.Board, game: model.
     time_left = msec(game.state[side])
     min_time = seconds(opening_explorer_cfg.min_time)
     source = opening_explorer_cfg.source
+    ratings = opening_explorer_cfg.ratings
+    speeds = opening_explorer_cfg.speeds
     if not opening_explorer_cfg.enabled or time_left < min_time or source == "master" and board.uci_variant != "chess":
         return None, {}
 
@@ -947,7 +949,7 @@ def get_opening_explorer_move(li: LICHESS_TYPE, board: chess.Board, game: model.
             response = li.online_book_get("https://explorer.lichess.ovh/player", params, True)
             comment = {"string": "lichess-bot-source:Lichess Opening Explorer (Player)"}
         else:
-            params = {"fen": board.fen(), "moves": 100, "variant": variant, "topGames": 0, "recentGames": 0}
+            params = {"fen": board.fen(), "moves": 100, "variant": variant, "topGames": 0, "recentGames": 0, "ratings": ratings}
             response = li.online_book_get("https://explorer.lichess.ovh/lichess", params)
             comment = {"string": "lichess-bot-source:Lichess Opening Explorer (Lichess)"}
         moves = []
@@ -961,8 +963,15 @@ def get_opening_explorer_move(li: LICHESS_TYPE, board: chess.Board, game: model.
                 # the second one will be used.
                 moves.append((winrate if opening_explorer_cfg.sort == "winrate" else games_played,
                               games_played if opening_explorer_cfg.sort == "winrate" else winrate, possible_move["uci"]))
+        
+        print(moves)
+        
+        if sum(moves[:][0]) < 10: #check for min 10 games played from position. Need to use "games played in config"
+            return None, {}
+        
         moves.sort(reverse=True)
-        move = moves[0][2]
+        move = random.choices(moves[:][2], weights = moves[:][0])
+        #move = moves[0][2]
         logger.info(f"Got move {move} from lichess opening explorer ({opening_explorer_cfg.sort}: {moves[0][0]})"
                     f" for game {game.id}")
     except Exception:
